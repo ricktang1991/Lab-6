@@ -20,6 +20,7 @@ import android.app.Application
 import android.provider.SyncStateContract.Helpers.insert
 import android.provider.SyncStateContract.Helpers.update
 import androidx.lifecycle.AndroidViewModel
+import androidx.lifecycle.LiveData
 import androidx.lifecycle.MutableLiveData
 import androidx.lifecycle.Transformations
 import com.example.android.trackmysleepquality.database.SleepDatabaseDao
@@ -30,6 +31,12 @@ import kotlinx.coroutines.*
 /**
  * ViewModel for SleepTrackerFragment.
  */
+
+private val _navigateToSleepQuality = MutableLiveData<SleepNight>()
+
+val navigateToSleepQuality: LiveData<SleepNight>
+    get() = _navigateToSleepQuality
+
 class SleepTrackerViewModel(
         val database: SleepDatabaseDao,
         application: Application) : AndroidViewModel(application) {
@@ -70,6 +77,16 @@ class SleepTrackerViewModel(
         }
     }
 
+    val startButtonVisible = Transformations.map(tonight) {
+        it == null
+    }
+    val stopButtonVisible = Transformations.map(tonight) {
+        it != null
+    }
+    val clearButtonVisible = Transformations.map(nights) {
+        it?.isNotEmpty()
+    }
+
     fun onStartTracking() {
         uiScope.launch {
             val newNight = SleepNight()
@@ -89,6 +106,7 @@ class SleepTrackerViewModel(
             val oldNight = tonight.value ?: return@launch
             oldNight.endTimeMilli = System.currentTimeMillis()
             update(oldNight)
+            _navigateToSleepQuality.value = oldNight
         }
     }
 
@@ -105,10 +123,24 @@ class SleepTrackerViewModel(
         }
     }
 
+    fun doneNavigating() {
+        _navigateToSleepQuality.value = null
+    }
+
     suspend fun clear() {
         withContext(Dispatchers.IO) {
             database.clear()
+            _showSnackbarEvent.value = true
         }
+    }
+
+    private var _showSnackbarEvent = MutableLiveData<Boolean>()
+
+    val showSnackBarEvent: LiveData<Boolean>
+        get() = _showSnackbarEvent
+
+    fun doneShowingSnackbar() {
+        _showSnackbarEvent.value = false
     }
 
 
